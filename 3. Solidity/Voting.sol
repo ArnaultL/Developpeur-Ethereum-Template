@@ -46,7 +46,7 @@ contract Voting is Ownable {
         workflowStatus = WorkflowStatus.RegisteringVoters;
     }
 
-    //Dans quel cas utiliser modifier plutôt que require() ? mis à part l'élégance, quelle est la plus value ?
+    //Dans quel(s) cas utiliser modifier plutôt que require() ? Mis à part la duplication de code, quelle est la plus value ?
     function registerVoters(address _voterAddress) public flowStatus(WorkflowStatus.RegisteringVoters) onlyOwner {
         require(!voters[_voterAddress].isRegistered, "This address is already in voters");
         Voter memory voter;
@@ -93,12 +93,12 @@ contract Voting is Ownable {
         emit WorkflowStatusChange(WorkflowStatus.VotingSessionStarted, WorkflowStatus.VotingSessionEnded);
     }
 
-    function computeWinningProposal() public flowStatus(WorkflowStatus.VotingSessionEnded) onlyOwner returns (uint winner) { //TODO, faire un tableau pour gérer les égalités
+    function computeWinningProposal() public flowStatus(WorkflowStatus.VotingSessionEnded) onlyOwner { //TODO, faire un tableau pour gérer les égalités
         uint winningVoteCount = 0;
         for (uint p = 0; p <proposals.length; p++) {
             if (proposals[p].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[p].voteCount;
-                winner = p;
+                winningProposalId = p;
             }
         }
         workflowStatus = WorkflowStatus.VotesTallied;
