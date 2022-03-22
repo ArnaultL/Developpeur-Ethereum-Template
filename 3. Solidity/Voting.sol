@@ -26,13 +26,13 @@ contract Voting is Ownable {
 
     WorkflowStatus public workflowStatus;
     uint private winningProposalId;
+    uint private winningVoteCount = 0;
 
     mapping(address => Voter) private voters;
 
     Proposal[] public proposals;
 
     modifier flowStatus(WorkflowStatus _status) {
-        //Comment préciser l'erreur avec une variable dans le champs texte ?
         require(workflowStatus == _status, "You are not able to do this action right now");
         _;
     }
@@ -40,19 +40,11 @@ contract Voting is Ownable {
     event VoterRegistered(address voterAddress);
     event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
     event ProposalRegistered(uint proposalId);
-    event Voted (address voter, uint proposalId);
+    event Voted(address voter, uint proposalId);
 
-    constructor() {
-        workflowStatus = WorkflowStatus.RegisteringVoters;
-    }
-
-    //Dans quel(s) cas utiliser modifier plutôt que require() ? Mis à part la duplication de code, quelle est la plus value ?
     function registerVoters(address _voterAddress) public flowStatus(WorkflowStatus.RegisteringVoters) onlyOwner {
         require(!voters[_voterAddress].isRegistered, "This address is already in voters");
-        Voter memory voter;
-        voter.isRegistered = true;
-        voter.hasVoted = false;
-        voters[_voterAddress] = voter;
+        voters[_voterAddress].push(Voter({isRegistered: true, hasVoted: false}));
         emit VoterRegistered(_voterAddress);
     }
 
@@ -61,12 +53,10 @@ contract Voting is Ownable {
         emit WorkflowStatusChange(WorkflowStatus.RegisteringVoters, WorkflowStatus.ProposalsRegistrationStarted);
     }
 
-    function registerProposals(Proposal memory proposal) public flowStatus(WorkflowStatus.ProposalsRegistrationStarted) {
+    function registerProposals(string _description) public flowStatus(WorkflowStatus.ProposalsRegistrationStarted) {
         require(voters[msg.sender].isRegistered, "You are not allowed to make a proposal");
         require(voters[msg.sender].votedProposalId == 0, "You have already made a proposal");
-        //Je suppose que dans ce cas, le mieux serait de passer un "string description" en params et de setter un objet memory proposal dans la fonction ?
-        require(proposal.voteCount == 0, "You are not allowed, for obvious reasons, to fill the voteCount");
-        proposals.push(proposal);
+        proposals.push(Proposal({description : _description}));
         voters[msg.sender].votedProposalId = proposals.length + 1;
     }
    
@@ -80,12 +70,16 @@ contract Voting is Ownable {
         emit WorkflowStatusChange(WorkflowStatus.ProposalsRegistrationEnded, WorkflowStatus.VotingSessionStarted);
     }
 
-    function vote(uint proposalId) public flowStatus(WorkflowStatus.VotingSessionStarted) {
+    function vote(uint _proposalId) public flowStatus(WorkflowStatus.VotingSessionStarted) {
         require(voters[msg.sender].isRegistered, "You are not allowed to vote");
         require(!voters[msg.sender].hasVoted, "You have already voted");
-        proposals[proposalId].voteCount += 1;
+        proposals[_proposalId].voteCount += 1;
+        if (proposals[_proposalId].voteCount > winningVoteCount) {
+            winningVoteCount = proposals[_proposalId].voteCount;
+            winningProposalId = _proposalId;
+        }
         voters[msg.sender].hasVoted = true;
-        emit Voted(msg.sender, proposalId);
+        emit Voted(msg.sender, _proposalId);
     }
 
     function endVotingSession() public flowStatus(WorkflowStatus.VotingSessionStarted) onlyOwner {
@@ -93,14 +87,7 @@ contract Voting is Ownable {
         emit WorkflowStatusChange(WorkflowStatus.VotingSessionStarted, WorkflowStatus.VotingSessionEnded);
     }
 
-    function computeWinningProposal() public flowStatus(WorkflowStatus.VotingSessionEnded) onlyOwner { //TODO, faire un tableau pour gérer les égalités
-        uint winningVoteCount = 0;
-        for (uint p = 0; p <proposals.length; p++) {
-            if (proposals[p].voteCount > winningVoteCount) {
-                winningVoteCount = proposals[p].voteCount;
-                winningProposalId = p;
-            }
-        }
+    function setStatusToTallied() public flowStatus(WorkflowStatus.VotingSessionEnded) onlyOwner {
         workflowStatus = WorkflowStatus.VotesTallied;
         emit WorkflowStatusChange(WorkflowStatus.VotingSessionEnded, WorkflowStatus.VotesTallied);
     }
