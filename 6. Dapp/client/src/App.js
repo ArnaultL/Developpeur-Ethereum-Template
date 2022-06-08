@@ -89,6 +89,11 @@ class App extends Component {
     await contract.methods.vote(proposalId).send({from: accounts[0]});
   }
 
+  endVotingSession = async () => {
+    const { accounts, contract } = this.state;
+    await contract.methods.endVotingSession().send({from: accounts[0]});
+  }
+
   setStatusToTallied = async () => {
     const { accounts, contract } = this.state;
     await contract.methods.setStatusToTallied().send({from: accounts[0]});
